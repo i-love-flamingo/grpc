@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+option go_package = "flmaingo.me/grpc/debug";
+
+message IdentifyRequest {}
+
+message IdentityResponse {
+    string subject = 1;
+    string identifier = 2;
+}
+
+service FlamingoGrpcDebug {
+    rpc Identify (IdentifyRequest) returns (IdentityResponse);
+}
