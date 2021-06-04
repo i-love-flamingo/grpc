@@ -26,13 +26,14 @@ func (c *WebOidcCredentials) GetRequestMetadata(ctx context.Context, uri ...stri
 		return nil, fmt.Errorf("no associated request")
 	}
 
+	tokenLock.Lock()
+	defer tokenLock.Unlock()
+
 	identity, err := c.identifier.IdentifyAs(ctx, req, oauth.OpenIDTypeChecker)
 	if identity == nil || err != nil {
 		return nil, fmt.Errorf("unable to obtain identity: %#w", err)
 	}
 
-	tokenLock.Lock()
-	defer tokenLock.Unlock()
 	token, err := identity.(oauth.OpenIDIdentity).TokenSource().Token()
 	if err != nil {
 		return nil, fmt.Errorf("unable to obtain token: %#w", err)
