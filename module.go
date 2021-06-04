@@ -9,6 +9,8 @@ import (
 	"flamingo.me/dingo"
 	"flamingo.me/flamingo/v3/framework/config"
 	"flamingo.me/flamingo/v3/framework/flamingo"
+	"go.opencensus.io/plugin/ocgrpc"
+	"go.opencensus.io/trace"
 	"google.golang.org/grpc"
 )
 
@@ -97,7 +99,13 @@ func (s *grpcServer) Notify(ctx context.Context, event flamingo.Event) {
 }
 
 func (s *grpcServer) ServeTcpAddr(ctx context.Context, addr string) error {
-	s.grpcServer = grpc.NewServer()
+	s.grpcServer = grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{
+		IsPublicEndpoint: false,
+		StartOptions: trace.StartOptions{
+			SpanKind: trace.SpanKindServer,
+			Sampler:  trace.AlwaysSample(),
+		},
+	}))
 
 	for _, rf := range s.register {
 		rf(s.grpcServer)
