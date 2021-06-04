@@ -3,6 +3,7 @@ package credentials
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"flamingo.me/flamingo/v3/core/auth"
 	"flamingo.me/flamingo/v3/core/auth/oauth"
@@ -17,6 +18,8 @@ func (c *WebOidcCredentials) Inject(identifier *auth.WebIdentityService) {
 	c.identifier = identifier
 }
 
+var tokenLock = new(sync.Mutex)
+
 func (c *WebOidcCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	req := web.RequestFromContext(ctx)
 	if req == nil {
@@ -28,6 +31,8 @@ func (c *WebOidcCredentials) GetRequestMetadata(ctx context.Context, uri ...stri
 		return nil, fmt.Errorf("unable to obtain identity: %#w", err)
 	}
 
+	tokenLock.Lock()
+	defer tokenLock.Unlock()
 	token, err := identity.(oauth.OpenIDIdentity).TokenSource().Token()
 	if err != nil {
 		return nil, fmt.Errorf("unable to obtain token: %#w", err)
