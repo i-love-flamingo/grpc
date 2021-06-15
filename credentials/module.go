@@ -20,6 +20,26 @@ func (c *WebOidcCredentials) Inject(identifier *auth.WebIdentityService) {
 
 var tokenLock = new(sync.Mutex)
 
+type ErrWebOidcUnableToIdentify struct {
+	msg string
+	err error
+}
+
+func NewErrWebOidcUnableToIdentify(msg string, err error) *ErrWebOidcUnableToIdentify {
+	return &ErrWebOidcUnableToIdentify{
+		msg: msg + ": " + err.Error(),
+		err: err,
+	}
+}
+
+func (e *ErrWebOidcUnableToIdentify) Error() string {
+	return e.msg
+}
+
+func (e *ErrWebOidcUnableToIdentify) Unwrap() error {
+	return e.err
+}
+
 func (c *WebOidcCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	req := web.RequestFromContext(ctx)
 	if req == nil {
@@ -31,12 +51,12 @@ func (c *WebOidcCredentials) GetRequestMetadata(ctx context.Context, uri ...stri
 
 	identity, err := c.identifier.IdentifyAs(ctx, req, oauth.OpenIDTypeChecker)
 	if identity == nil || err != nil {
-		return nil, fmt.Errorf("unable to obtain identity: %#w", err)
+		return nil, NewErrWebOidcUnableToIdentify("unable to obtain identity", err)
 	}
 
 	token, err := identity.(oauth.OpenIDIdentity).TokenSource().Token()
 	if err != nil {
-		return nil, fmt.Errorf("unable to obtain token: %#w", err)
+		return nil, NewErrWebOidcUnableToIdentify("unable to obtain token", err)
 	}
 
 	return map[string]string{
