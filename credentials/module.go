@@ -10,37 +10,37 @@ import (
 	"flamingo.me/flamingo/v3/framework/web"
 )
 
-type WebOidcCredentials struct {
+type WebOauth2Credentials struct {
 	identifier *auth.WebIdentityService
 }
 
-func (c *WebOidcCredentials) Inject(identifier *auth.WebIdentityService) {
+func (c *WebOauth2Credentials) Inject(identifier *auth.WebIdentityService) {
 	c.identifier = identifier
 }
 
 var tokenLock = new(sync.Mutex)
 
-type ErrWebOidcUnableToIdentify struct {
+type ErrWebOauth2UnableToIdentify struct {
 	msg string
 	err error
 }
 
-func NewErrWebOidcUnableToIdentify(msg string, err error) *ErrWebOidcUnableToIdentify {
-	return &ErrWebOidcUnableToIdentify{
+func NewErrWebOauth2UnableToIdentify(msg string, err error) *ErrWebOauth2UnableToIdentify {
+	return &ErrWebOauth2UnableToIdentify{
 		msg: msg + ": " + err.Error(),
 		err: err,
 	}
 }
 
-func (e *ErrWebOidcUnableToIdentify) Error() string {
+func (e *ErrWebOauth2UnableToIdentify) Error() string {
 	return e.msg
 }
 
-func (e *ErrWebOidcUnableToIdentify) Unwrap() error {
+func (e *ErrWebOauth2UnableToIdentify) Unwrap() error {
 	return e.err
 }
 
-func (c *WebOidcCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (c *WebOauth2Credentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	req := web.RequestFromContext(ctx)
 	if req == nil {
 		return nil, fmt.Errorf("no associated request")
@@ -49,21 +49,21 @@ func (c *WebOidcCredentials) GetRequestMetadata(ctx context.Context, uri ...stri
 	tokenLock.Lock()
 	defer tokenLock.Unlock()
 
-	identity, err := c.identifier.IdentifyAs(ctx, req, oauth.OpenIDTypeChecker)
+	identity, err := c.identifier.IdentifyAs(ctx, req, oauth.OAuthTypeChecker)
 	if identity == nil || err != nil {
-		return nil, NewErrWebOidcUnableToIdentify("unable to obtain identity", err)
+		return nil, NewErrWebOauth2UnableToIdentify("unable to obtain identity", err)
 	}
 
-	token, err := identity.(oauth.OpenIDIdentity).TokenSource().Token()
+	token, err := identity.(oauth.Identity).TokenSource().Token()
 	if err != nil {
-		return nil, NewErrWebOidcUnableToIdentify("unable to obtain token", err)
+		return nil, NewErrWebOauth2UnableToIdentify("unable to obtain token", err)
 	}
 
 	return map[string]string{
-		"identity": token.AccessToken,
+		"authorization": token.AccessToken,
 	}, nil
 }
 
-func (*WebOidcCredentials) RequireTransportSecurity() bool {
+func (*WebOauth2Credentials) RequireTransportSecurity() bool {
 	return false
 }

@@ -23,7 +23,7 @@ type Module struct{}
 func (*Module) Configure(injector *dingo.Injector) {
 	injector.Bind(new([]CallIdentifier)).ToProvider(buildIdentifier)
 	injector.Bind(new(IdentityService)).In(dingo.ChildSingleton)
-	injector.BindMap(new(CallIdentifierFactory), "oidc").ToInstance(oidcFactory)
+	injector.BindMap(new(CallIdentifierFactory), "oauth2").ToInstance(oauth2Factory)
 	injector.BindMap(new(CallIdentifierFactory), "mock").ToInstance(mockFactory)
 }
 

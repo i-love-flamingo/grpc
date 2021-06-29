@@ -3,22 +3,24 @@ package grpc
 import (
 	"context"
 	"fmt"
-	"log"
+	"time"
 
 	"flamingo.me/flamingo/v3/core/auth"
+	"flamingo.me/flamingo/v3/core/auth/oauth"
 	"flamingo.me/flamingo/v3/framework/config"
 	"github.com/coreos/go-oidc"
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc/metadata"
 )
 
-type oidcCallIdentifier struct {
+type oauth2CallIdentifier struct {
 	identifier string
 	metakey    string
 	provider   *oidc.Provider
 	clientID   string
 }
 
-var _ CallIdentifier = new(oidcCallIdentifier)
+var _ CallIdentifier = new(oauth2CallIdentifier)
 
 type oidcConfig struct {
 	Identifier  string `json:"identifier"`
@@ -27,7 +29,7 @@ type oidcConfig struct {
 	MetadataKey string `json:"metadatakey"`
 }
 
-func oidcFactory(cfg config.Map) (CallIdentifier, error) {
+func oauth2Factory(cfg config.Map) (CallIdentifier, error) {
 	var oidcConfig oidcConfig
 
 	if err := cfg.MapInto(&oidcConfig); err != nil {
@@ -39,7 +41,11 @@ func oidcFactory(cfg config.Map) (CallIdentifier, error) {
 		return nil, err
 	}
 
-	return &oidcCallIdentifier{
+	if oidcConfig.MetadataKey == "" {
+		oidcConfig.MetadataKey = "authorization"
+	}
+
+	return &oauth2CallIdentifier{
 		identifier: oidcConfig.Identifier,
 		provider:   provider,
 		clientID:   oidcConfig.ClientID,
@@ -47,24 +53,50 @@ func oidcFactory(cfg config.Map) (CallIdentifier, error) {
 	}, nil
 }
 
-func (identifier *oidcCallIdentifier) Identifier() string {
+func (identifier *oauth2CallIdentifier) Identifier() string {
 	return identifier.identifier
 }
 
-type oidcIdentity struct {
+type oauth2Identity struct {
 	identifier string
 	token      *oidc.IDToken
+	rawToken   string
 }
 
-func (identity *oidcIdentity) Broker() string {
+var _ oauth.Identity = new(oauth2Identity)
+
+func (identity *oauth2Identity) Broker() string {
 	return identity.identifier
 }
 
-func (identity *oidcIdentity) Subject() string {
+func (identity *oauth2Identity) Subject() string {
 	return identity.token.Subject
 }
 
-func (identifier *oidcCallIdentifier) Identify(ctx context.Context) (auth.Identity, error) {
+type staticTokenSource struct {
+	identity *oauth2Identity
+}
+
+func (s staticTokenSource) Token() (*oauth2.Token, error) {
+	if s.identity.token.Expiry.After(time.Now()) {
+		return nil, fmt.Errorf("token already timed out")
+	}
+	return &oauth2.Token{
+		AccessToken: s.identity.rawToken,
+	}, nil
+}
+
+func (identity *oauth2Identity) TokenSource() oauth2.TokenSource {
+	return staticTokenSource{
+		identity: identity,
+	}
+}
+
+func (identity *oauth2Identity) AccessTokenClaims(into interface{}) error {
+	return identity.token.Claims(into)
+}
+
+func (identifier *oauth2CallIdentifier) Identify(ctx context.Context) (auth.Identity, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("no metadata available")
@@ -76,14 +108,13 @@ func (identifier *oidcCallIdentifier) Identify(ctx context.Context) (auth.Identi
 
 	var err error
 	var token *oidc.IDToken
-	log.Println(identifier.metakey, md.Get(identifier.metakey))
-	for _, line := range md.Get(identifier.metakey) {
-		log.Println("LINE", line)
-		token, err = verifier.Verify(ctx, line)
+	for _, rawToken := range md.Get(identifier.metakey) {
+		token, err = verifier.Verify(ctx, rawToken)
 		if err == nil {
-			return &oidcIdentity{
+			return &oauth2Identity{
 				identifier: identifier.identifier,
 				token:      token,
+				rawToken:   rawToken,
 			}, nil
 		}
 	}
