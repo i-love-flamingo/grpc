@@ -78,11 +78,13 @@ type staticTokenSource struct {
 }
 
 func (s staticTokenSource) Token() (*oauth2.Token, error) {
-	if s.identity.token.Expiry.After(time.Now()) {
+	if time.Now().After(s.identity.token.Expiry) {
 		return nil, fmt.Errorf("token already timed out")
 	}
 	return &oauth2.Token{
 		AccessToken: s.identity.rawToken,
+		TokenType:   "Bearer",
+		Expiry:      s.identity.token.Expiry,
 	}, nil
 }
 
