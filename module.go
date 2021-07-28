@@ -27,6 +27,15 @@ func (*Module) Configure(injector *dingo.Injector) {
 	injector.BindMap(new(CallIdentifierFactory), "mock").ToInstance(mockFactory)
 }
 
+func (*Module) CueConfig() string {
+	return `
+grpc: {
+	identifier: _
+	addr: string | *":11101"
+}
+`
+}
+
 func buildIdentifier(
 	provider map[string]CallIdentifierFactory,
 	cfg *struct {
@@ -77,17 +86,21 @@ func (*ServerModule) Depends() []dingo.Module {
 type grpcServer struct {
 	register   []ServerRegister
 	grpcServer *grpc.Server
+	addr       string
 }
 
-func (s *grpcServer) Inject(register []ServerRegister) {
+func (s *grpcServer) Inject(register []ServerRegister, config *struct {
+	Port string `inject:"config:grpc.addr"`
+}) {
 	s.register = register
+	s.addr = config.Port
 }
 
 func (s *grpcServer) Notify(ctx context.Context, event flamingo.Event) {
 	switch event.(type) {
 	case *flamingo.ServerStartEvent:
 		go func() {
-			if err := s.ServeTcpAddr(context.Background(), ":11101"); err != nil {
+			if err := s.ServeTcpAddr(context.Background(), s.addr); err != nil {
 				log.Fatal(err)
 			}
 		}()
@@ -116,7 +129,7 @@ func (s *grpcServer) ServeTcpAddr(ctx context.Context, addr string) error {
 		return fmt.Errorf("unable to listen: %w", err)
 	}
 
-	log.Println("ready to listen", addr)
+	log.Printf("ready to listen on %s", addr)
 
 	return s.grpcServer.Serve(listener)
 }
