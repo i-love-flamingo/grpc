@@ -105,9 +105,13 @@ func (s *grpcServer) Notify(ctx context.Context, event flamingo.Event) {
 			}
 		}()
 	case *flamingo.ShutdownEvent:
-		s.grpcServer.GracefulStop()
+		if s.grpcServer != nil {
+			s.grpcServer.GracefulStop()
+		}
 	case *flamingo.ServerShutdownEvent:
-		s.grpcServer.Stop()
+		if s.grpcServer != nil {
+			s.grpcServer.Stop()
+		}
 	}
 }
 
