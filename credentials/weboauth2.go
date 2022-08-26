@@ -8,6 +8,7 @@ import (
 	"flamingo.me/flamingo/v3/core/auth"
 	"flamingo.me/flamingo/v3/core/auth/oauth"
 	"flamingo.me/flamingo/v3/framework/web"
+	"flamingo.me/grpc"
 )
 
 type WebOauth2Credentials struct {
@@ -65,5 +66,55 @@ func (c *WebOauth2Credentials) GetRequestMetadata(ctx context.Context, uri ...st
 }
 
 func (*WebOauth2Credentials) RequireTransportSecurity() bool {
+	return false
+}
+
+type Oauth2Credentials struct {
+	identifier     *auth.WebIdentityService
+	grpcIdentifier *grpc.IdentityService
+}
+
+func (c *Oauth2Credentials) Inject(identifier *auth.WebIdentityService, grpcIdentifier *grpc.IdentityService) {
+	c.identifier = identifier
+	c.grpcIdentifier = grpcIdentifier
+}
+
+func (c *Oauth2Credentials) auth(ctx context.Context) (oauth.Identity, error) {
+	wr := web.RequestFromContext(ctx)
+	if wr != nil {
+		identity, err := c.identifier.IdentifyAs(ctx, wr, oauth.OAuthTypeChecker)
+		if err == nil && identity != nil {
+			return identity.(oauth.Identity), nil
+		}
+	}
+
+	identity := c.grpcIdentifier.Identify(ctx)
+	if identity != nil {
+		return identity.(oauth.Identity), nil
+	}
+
+	return nil, fmt.Errorf("no identity obtainable")
+}
+
+func (c *Oauth2Credentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	identity, err := c.auth(ctx)
+	if err != nil {
+		return nil, NewErrWebOauth2UnableToIdentify("unable to obtain identity", err)
+	}
+
+	tokenLock.Lock()
+	defer tokenLock.Unlock()
+
+	token, err := identity.TokenSource().Token()
+	if err != nil {
+		return nil, NewErrWebOauth2UnableToIdentify("unable to obtain token", err)
+	}
+
+	return map[string]string{
+		"authorization": token.AccessToken,
+	}, nil
+}
+
+func (*Oauth2Credentials) RequireTransportSecurity() bool {
 	return false
 }
