@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"flamingo.me/flamingo/v3/core/auth"
@@ -111,6 +112,9 @@ func (identifier *oauth2CallIdentifier) Identify(ctx context.Context) (auth.Iden
 	var err error
 	var token *oidc.IDToken
 	for _, rawToken := range md.Get(identifier.metakey) {
+		if strings.HasPrefix(strings.ToLower(rawToken), "bearer ") {
+			rawToken = rawToken[len("bearer "):]
+		}
 		token, err = verifier.Verify(ctx, rawToken)
 		if err == nil {
 			return &oauth2Identity{

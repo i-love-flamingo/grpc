@@ -61,7 +61,7 @@ func (c *WebOauth2Credentials) GetRequestMetadata(ctx context.Context, uri ...st
 	}
 
 	return map[string]string{
-		"authorization": token.AccessToken,
+		"authorization": token.TokenType + " " + token.AccessToken,
 	}, nil
 }
 
@@ -111,7 +111,7 @@ func (c *Oauth2Credentials) GetRequestMetadata(ctx context.Context, uri ...strin
 	}
 
 	return map[string]string{
-		"authorization": token.AccessToken,
+		"authorization": token.TokenType + " " + token.AccessToken,
 	}, nil
 }
 

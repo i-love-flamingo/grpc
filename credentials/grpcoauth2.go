@@ -2,6 +2,7 @@ package credentials
 
 import (
 	"context"
+
 	"flamingo.me/flamingo/v3/core/auth/oauth"
 	"flamingo.me/grpc"
 )
@@ -46,7 +47,7 @@ func (c *GrpcOauth2Credentials) GetRequestMetadata(ctx context.Context, uri ...s
 	}
 
 	return map[string]string{
-		"authorization": token.AccessToken,
+		"authorization": token.TokenType + " " + token.AccessToken,
 	}, nil
 }
 
