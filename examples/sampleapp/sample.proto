@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option go_package = "grpc/example/generated";
+
+package grpc.example;
+
+
+message MyResponse {
+  string name = 1;
+}
+
+
+message GetByIdRequest {
+  string id = 1;
+}
+
+service ExampleService {
+  rpc GetById(GetByIdRequest) returns (MyResponse);
+}
