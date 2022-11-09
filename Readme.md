@@ -28,6 +28,7 @@ func serverRegisterProvider(s *ServiceImplementation) grpc.ServerRegister {
 }
 ```
 Where `ServiceImplementation` is your implementation of the generated service interface. And `RegisterExampleServiceServer` is the generated helper method to register.
+
 4) Add flamingo grpc server: Inside your `main.go` add the `grpc.ServerModule` to the flamingo bootstrap.
 5) You may now configure the authenticators inside your configuration:
 ```yaml
